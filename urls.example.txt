@@ -1,0 +1,15 @@
+
+# Example URLs for batch processing
+# Lines starting with # are comments and will be ignored
+# Each line should contain one URL
+
+https://example.com
+https://github.com
+https://stackoverflow.com
+https://news.ycombinator.com
+https://rust-lang.org
+https://crates.io
+https://docs.rs
+https://www.wikipedia.org
+https://httpbin.org/html
+https://jsonplaceholder.typicode.com

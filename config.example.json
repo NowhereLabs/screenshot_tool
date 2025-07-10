@@ -1,0 +1,28 @@
+{
+  "browser_pool_size": 10,
+  "max_concurrent_screenshots": 200,
+  "screenshot_timeout": {
+    "secs": 30,
+    "nanos": 0
+  },
+  "retry_attempts": 3,
+  "output_format": "Png",
+  "viewport": {
+    "width": 1920,
+    "height": 1080,
+    "device_scale_factor": 1.0,
+    "mobile": false
+  },
+  "optimization": {
+    "block_ads": true,
+    "block_trackers": true,
+    "block_images": false,
+    "enable_javascript": true,
+    "wait_for_network_idle": false,
+    "disable_css": false,
+    "disable_plugins": true
+  },
+  "chrome_path": null,
+  "user_agent": null,
+  "memory_limit": 1073741824
+}

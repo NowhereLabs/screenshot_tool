@@ -1,0 +1,83 @@
+# Rust
+target/
+Cargo.lock
+*.pdb
+
+# IDE and Editor Files
+.vscode/
+.idea/
+*.swp
+*.swo
+*.tmp
+*~
+.project
+.settings/
+.classpath
+
+# OS Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+*~
+
+# Environment Files
+.env
+.env.local
+.env.development.local
+.env.test.local
+.env.production.local
+
+# Log Files
+*.log
+logs/
+log/
+
+# Screenshot Tool Specific
+screenshots/
+output/
+*.png
+*.jpg
+*.jpeg
+*.webp
+*.gif
+*.bmp
+
+# Config Files (keep examples)
+config.json
+urls.txt
+settings.json
+
+# Coverage Reports
+coverage/
+*.profraw
+*.profdata
+
+# Docker
+Dockerfile.local
+docker-compose.override.yml
+.dockerignore.local
+
+# Benchmarks and Performance
+flamegraph.svg
+perf.data*
+*.perf
+
+# Temporary and Cache Files
+.cache/
+tmp/
+temp/
+*.tmp
+*.temp
+
+# Lock Files (for tools)
+.tool-versions
+.nvmrc
+
+# Chrome/Browser Cache (if any)
+.chrome/
+chrome-data/
+browser-cache/
