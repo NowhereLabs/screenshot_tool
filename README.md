@@ -5,7 +5,7 @@
 A high-performance web screenshot tool written in Rust, designed for bulk URL processing with support for 100-200 concurrent screenshots.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://doc.rust-lang.org/stable/)
 [![Performance](https://img.shields.io/badge/performance-60%2B%20fps-brightgreen.svg)]()
 
 </div>
@@ -213,6 +213,27 @@ Example configuration with performance optimizations:
    - Monitor system memory usage
    - Reduce pool size if memory pressure occurs
    - Use full-page screenshots sparingly (higher memory usage)
+
+### Benchmark Results
+
+The tool includes comprehensive benchmarks testing various components:
+
+| Component | Operation | Performance |
+|-----------|-----------|-------------|
+| **Config Creation** | Object instantiation | ~4.3 ns |
+| **Screenshot Request** | Request object creation | ~482 ns |
+| **URL Validation** | URL parsing & validation | Optimized for batch processing |
+| **Filename Sanitization** | Path cleaning | High-speed sanitization |
+| **Buffer Pool** | Memory buffer management | Multiple size optimizations (1KB-8KB) |
+| **Rate Limiter** | Throughput control | 10-100 concurrent operations |
+| **Circuit Breaker** | Failure detection | 5-20 operation windows |
+
+Run benchmarks yourself:
+```bash
+cargo bench
+```
+
+Results stored in `target/criterion/` with detailed HTML reports.
 
 ## 🔧 Troubleshooting
 
