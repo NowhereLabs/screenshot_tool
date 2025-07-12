@@ -5,8 +5,8 @@
 A high-performance web screenshot tool written in Rust, designed for bulk URL processing with support for 100-200 concurrent screenshots.
 
 [![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![Build Status](https://img.shields.io/badge/build-passing-brightgreen.svg)]()
-[![Rust](https://img.shields.io/badge/language-Rust-orange.svg)](https://www.rust-lang.org/)
+[![Rust](https://img.shields.io/badge/rust-1.70%2B-orange.svg)](https://www.rust-lang.org/)
+[![Performance](https://img.shields.io/badge/performance-60%2B%20fps-brightgreen.svg)]()
 
 </div>
 
@@ -33,7 +33,7 @@ A high-performance web screenshot tool written in Rust, designed for bulk URL pr
 
 ```bash
 # Clone the repository
-git clone https://github.com/your-username/screenshot-tool.git
+git clone https://github.com/NowhereLabs/screenshot-tool.git
 cd screenshot-tool
 
 # Build the release binary
@@ -146,6 +146,8 @@ Example configuration with performance optimizations:
 - `retry_attempts`: Number of retry attempts for failed screenshots
 - `optimization.block_ads/trackers`: Improves performance by blocking unnecessary resources
 
+> **Note**: See `config.example.json` for complete configuration options including `wait_for_network_idle`, `disable_css`, `disable_plugins`, `memory_limit`, `chrome_path`, and `user_agent`.
+
 ## CLI Options
 
 ### Global Options
@@ -245,8 +247,7 @@ screenshot-tool --config optimized-config.json batch --input urls.txt --output s
 # Increase timeout for slow websites
 screenshot-tool --timeout 60 batch --input urls.txt --output screenshots/
 
-# Enable retry logic
-screenshot-tool batch --input urls.txt --output screenshots/ --retry-attempts 5
+# Configure retry logic via config file (see config.example.json for retry_attempts option)
 ```
 
 ### Debug & Logging
@@ -337,9 +338,9 @@ This project is licensed under the MIT License - see the [LICENSE](LICENSE) file
 ## 📞 Support
 
 For issues, questions, or contributions:
-- 🐛 [Report bugs](https://github.com/your-username/screenshot-tool/issues)
-- 💡 [Request features](https://github.com/your-username/screenshot-tool/issues)
-- 📖 [Documentation](https://github.com/your-username/screenshot-tool/wiki)
+- 🐛 [Report bugs](https://github.com/NowhereLabs/screenshot-tool/issues)
+- 💡 [Request features](https://github.com/NowhereLabs/screenshot-tool/issues)
+- 📖 [Documentation](https://github.com/NowhereLabs/screenshot-tool/wiki)
 
 ---
 
