@@ -1,7 +1,7 @@
 #[cfg(test)]
 mod integration_tests {
     // use super::*;
-    use crate::{Config, ScreenshotRequest, Priority, Viewport, OutputFormat};
+    use crate::{Config, OutputFormat, Priority, ScreenshotRequest, Viewport};
     use std::time::Duration;
     // use tokio_test;
 
@@ -41,18 +41,21 @@ mod integration_tests {
     fn test_chrome_args_generation() {
         let config = Config::default();
         let args = crate::get_chrome_args(&config);
-        
+
         assert!(args.contains(&"--headless".to_string()));
         assert!(args.contains(&"--no-sandbox".to_string()));
         assert!(args.contains(&"--disable-gpu".to_string()));
-        assert!(args.contains(&format!("--window-size={},{}", config.viewport.width, config.viewport.height)));
+        assert!(args.contains(&format!(
+            "--window-size={},{}",
+            config.viewport.width, config.viewport.height
+        )));
     }
-    
+
     #[test]
     fn test_browser_config_creation() {
         let config = Config::default();
         let _browser_config = crate::create_browser_config(&config);
-        
+
         // The browser config should be created successfully
         // We can't easily test the internal structure, but we can verify it doesn't panic
         // Note: viewport field is private, so we'll just verify the config was created
@@ -62,7 +65,7 @@ mod integration_tests {
     #[test]
     fn test_error_retryable() {
         use crate::ScreenshotError;
-        
+
         assert!(ScreenshotError::BrowserUnavailable.is_retryable());
         assert!(ScreenshotError::NetworkError("test".to_string()).is_retryable());
         assert!(ScreenshotError::Timeout(Duration::from_secs(1)).is_retryable());
@@ -72,32 +75,44 @@ mod integration_tests {
 
     #[test]
     fn test_error_severity() {
-        use crate::{ScreenshotError, ErrorSeverity};
-        
-        assert!(matches!(ScreenshotError::InvalidUrl("test".to_string()).severity(), ErrorSeverity::Low));
-        assert!(matches!(ScreenshotError::NetworkError("test".to_string()).severity(), ErrorSeverity::Medium));
-        assert!(matches!(ScreenshotError::ConfigurationError("test".to_string()).severity(), ErrorSeverity::High));
-        assert!(matches!(ScreenshotError::MemoryLimitExceeded.severity(), ErrorSeverity::High));
+        use crate::{ErrorSeverity, ScreenshotError};
+
+        assert!(matches!(
+            ScreenshotError::InvalidUrl("test".to_string()).severity(),
+            ErrorSeverity::Low
+        ));
+        assert!(matches!(
+            ScreenshotError::NetworkError("test".to_string()).severity(),
+            ErrorSeverity::Medium
+        ));
+        assert!(matches!(
+            ScreenshotError::ConfigurationError("test".to_string()).severity(),
+            ErrorSeverity::High
+        ));
+        assert!(matches!(
+            ScreenshotError::MemoryLimitExceeded.severity(),
+            ErrorSeverity::High
+        ));
     }
 
     #[test]
     fn test_circuit_breaker() {
         use crate::CircuitBreaker;
-        
+
         let breaker = CircuitBreaker::new(3, Duration::from_secs(60));
-        
+
         // Initially closed
         assert!(breaker.can_execute());
         assert_eq!(breaker.get_failure_count(), 0);
-        
+
         // Record failures
         breaker.record_failure();
         breaker.record_failure();
         assert!(breaker.can_execute()); // Still closed
-        
+
         breaker.record_failure();
         assert!(!breaker.can_execute()); // Now open
-        
+
         // Record success should reset
         breaker.record_success();
         assert!(breaker.can_execute());
@@ -107,16 +122,16 @@ mod integration_tests {
     #[tokio::test]
     async fn test_buffer_pool() {
         use crate::BufferPool;
-        
+
         let pool = BufferPool::new(1024, 10);
-        
+
         // Get a buffer
         let buffer1 = pool.get_buffer().await;
         assert!(buffer1.capacity() >= 1024);
-        
+
         // Return the buffer
         pool.return_buffer(buffer1).await;
-        
+
         // Get stats
         let stats = pool.get_stats().await;
         assert_eq!(stats.buffer_size, 1024);
@@ -127,17 +142,17 @@ mod integration_tests {
     #[tokio::test]
     async fn test_rate_limiter() {
         use crate::RateLimiter;
-        
+
         let limiter = RateLimiter::new(5); // 5 requests per second
-        
+
         // Should be able to acquire 5 permits
         for _ in 0..5 {
             assert!(limiter.acquire().await);
         }
-        
+
         // 6th request should be blocked
         assert!(!limiter.acquire().await);
-        
+
         // Check current rate
         let rate = limiter.get_current_rate().await;
         assert_eq!(rate, 5);
@@ -146,7 +161,7 @@ mod integration_tests {
     #[test]
     fn test_utils_sanitize_filename() {
         use crate::sanitize_filename;
-        
+
         assert_eq!(sanitize_filename("test.txt"), "test.txt");
         assert_eq!(sanitize_filename("test/file.txt"), "test_file.txt");
         assert_eq!(sanitize_filename("test:file?.txt"), "test_file_.txt");
@@ -156,7 +171,7 @@ mod integration_tests {
     #[test]
     fn test_utils_format_duration() {
         use crate::format_duration;
-        
+
         assert_eq!(format_duration(Duration::from_millis(500)), "500ms");
         assert_eq!(format_duration(Duration::from_secs(5)), "5.0s");
         assert_eq!(format_duration(Duration::from_secs(65)), "1m 5s");
@@ -166,7 +181,7 @@ mod integration_tests {
     #[test]
     fn test_utils_format_bytes() {
         use crate::format_bytes;
-        
+
         assert_eq!(format_bytes(512), "512 B");
         assert_eq!(format_bytes(1024), "1.00 KB");
         assert_eq!(format_bytes(1536), "1.50 KB");
@@ -177,7 +192,7 @@ mod integration_tests {
     #[test]
     fn test_utils_validate_url() {
         use crate::validate_url;
-        
+
         assert!(validate_url("https://example.com").is_ok());
         assert!(validate_url("http://example.com").is_ok());
         assert!(validate_url("https://example.com/path?query=value").is_ok());
@@ -189,10 +204,19 @@ mod integration_tests {
     #[test]
     fn test_utils_extract_domain() {
         use crate::extract_domain;
-        
-        assert_eq!(extract_domain("https://example.com/path"), Some("example.com".to_string()));
-        assert_eq!(extract_domain("http://subdomain.example.com"), Some("subdomain.example.com".to_string()));
-        assert_eq!(extract_domain("https://example.com:8080/path"), Some("example.com".to_string()));
+
+        assert_eq!(
+            extract_domain("https://example.com/path"),
+            Some("example.com".to_string())
+        );
+        assert_eq!(
+            extract_domain("http://subdomain.example.com"),
+            Some("subdomain.example.com".to_string())
+        );
+        assert_eq!(
+            extract_domain("https://example.com:8080/path"),
+            Some("example.com".to_string())
+        );
         assert_eq!(extract_domain("invalid-url"), None);
         assert_eq!(extract_domain(""), None);
     }
@@ -200,8 +224,11 @@ mod integration_tests {
     #[test]
     fn test_utils_is_same_domain() {
         use crate::is_same_domain;
-        
-        assert!(is_same_domain("https://example.com/path1", "https://example.com/path2"));
+
+        assert!(is_same_domain(
+            "https://example.com/path1",
+            "https://example.com/path2"
+        ));
         assert!(is_same_domain("http://example.com", "https://example.com"));
         assert!(!is_same_domain("https://example.com", "https://other.com"));
         assert!(!is_same_domain("invalid-url", "https://example.com"));
@@ -210,17 +237,17 @@ mod integration_tests {
     #[test]
     fn test_request_interceptor() {
         use crate::RequestInterceptor;
-        
+
         let interceptor = RequestInterceptor::new();
-        
+
         // Should block ad domains
         assert!(interceptor.should_block("https://googletagmanager.com/script.js", "script"));
         assert!(interceptor.should_block("https://googlesyndication.com/ad.js", "script"));
-        
+
         // Should block tracker patterns
         assert!(interceptor.should_block("https://example.com/analytics.js", "script"));
         assert!(interceptor.should_block("https://example.com/tracking/pixel.gif", "image"));
-        
+
         // Should not block regular content
         assert!(!interceptor.should_block("https://example.com/main.js", "script"));
         assert!(!interceptor.should_block("https://example.com/style.css", "stylesheet"));
@@ -229,22 +256,22 @@ mod integration_tests {
     #[test]
     fn test_memory_monitor() {
         use crate::{MemoryMonitor, MemoryStatus};
-        
+
         let monitor = MemoryMonitor::new(1024 * 1024); // 1MB limit
-        
+
         // Initially normal
         assert_eq!(monitor.check_memory(), MemoryStatus::Normal);
         assert_eq!(monitor.get_usage_percentage(), 0.0);
-        
+
         // Update usage
         monitor.update_usage(512 * 1024); // 512KB
         assert_eq!(monitor.check_memory(), MemoryStatus::Normal);
         assert_eq!(monitor.get_usage_percentage(), 50.0);
-        
+
         // Warning threshold (80%)
         monitor.update_usage(900 * 1024); // 900KB
         assert_eq!(monitor.check_memory(), MemoryStatus::Warning);
-        
+
         // Critical threshold (100%+)
         monitor.update_usage(1100 * 1024); // 1100KB
         assert_eq!(monitor.check_memory(), MemoryStatus::Critical);
@@ -253,9 +280,9 @@ mod integration_tests {
     #[tokio::test]
     async fn test_progress_tracker() {
         use crate::ProgressTracker;
-        
+
         let tracker = ProgressTracker::new(100);
-        
+
         // Initially no progress
         let progress = tracker.get_progress();
         assert_eq!(progress.total, 100);
@@ -263,23 +290,23 @@ mod integration_tests {
         assert_eq!(progress.errors, 0);
         assert_eq!(progress.success, 0);
         assert!(!tracker.is_complete());
-        
+
         // Record some completions
         for i in 0..50 {
             tracker.record_completion(i % 10 != 0); // 10% error rate
         }
-        
+
         let progress = tracker.get_progress();
         assert_eq!(progress.completed, 50);
         assert_eq!(progress.errors, 5);
         assert_eq!(progress.success, 45);
         assert!(!tracker.is_complete());
-        
+
         // Complete the rest
         for i in 50..100 {
             tracker.record_completion(i % 10 != 0);
         }
-        
+
         assert!(tracker.is_complete());
         let final_progress = tracker.get_progress();
         assert_eq!(final_progress.completed, 100);
@@ -290,7 +317,7 @@ mod integration_tests {
     #[test]
     fn test_retry_config() {
         use crate::RetryConfig;
-        
+
         let config = RetryConfig::default();
         assert_eq!(config.max_attempts, 3);
         assert_eq!(config.initial_delay, Duration::from_millis(100));
@@ -307,7 +334,7 @@ mod integration_tests {
             chrome_path: Some("/usr/sbin/chromium".to_string()),
             ..Default::default()
         };
-        
+
         // Retry service creation in case of Chrome conflicts
         let mut attempts = 0;
         loop {
@@ -315,10 +342,14 @@ mod integration_tests {
                 Ok(service) => return service,
                 Err(e) if attempts < 3 => {
                     attempts += 1;
-                    eprintln!("⚠️  Service creation attempt {} failed: {:?}, retrying...", attempts, e);
+                    eprintln!("⚠️  Service creation attempt {attempts} failed: {e:?}, retrying...");
                     tokio::time::sleep(std::time::Duration::from_millis(500)).await;
                 }
-                Err(e) => panic!("Failed to create service after {} attempts: {:?}", attempts + 1, e),
+                Err(e) => panic!(
+                    "Failed to create service after {} attempts: {:?}",
+                    attempts + 1,
+                    e
+                ),
             }
         }
     }
@@ -326,16 +357,16 @@ mod integration_tests {
     #[tokio::test]
     async fn test_service_creation() {
         let service = create_test_service().await;
-        
+
         // Test basic service functionality
         let queue_size = service.get_queue_size().await;
         assert_eq!(queue_size, 0);
-        
+
         // Test browser pool stats
         let stats = service.browser_pool.get_stats().await;
         assert_eq!(stats.total_instances, 1);
         assert_eq!(stats.healthy_instances, 1);
-        
+
         // Shutdown
         service.shutdown().await;
     }
@@ -344,16 +375,16 @@ mod integration_tests {
     async fn test_single_screenshot() {
         // Add small delay to avoid conflicts with other tests
         tokio::time::sleep(std::time::Duration::from_millis(100)).await;
-        
+
         let service = create_test_service().await;
-        
+
         let request = ScreenshotRequest {
             url: "https://example.com".to_string(),
             ..Default::default()
         };
-        
+
         let result = service.screenshot_single(request).await;
-        
+
         match result {
             Ok(screenshot) => {
                 if screenshot.success {
@@ -362,7 +393,10 @@ mod integration_tests {
                     println!("✅ Screenshot test passed successfully!");
                 } else {
                     // In some environments, Chrome might not work properly
-                    eprintln!("⚠️  Screenshot failed (may be expected in some environments): {:?}", screenshot.error);
+                    eprintln!(
+                        "⚠️  Screenshot failed (may be expected in some environments): {:?}",
+                        screenshot.error
+                    );
                     // Don't fail the test - just warn
                 }
             }
@@ -372,7 +406,7 @@ mod integration_tests {
                 // Don't fail the test - just warn
             }
         }
-        
+
         service.shutdown().await;
     }
 }

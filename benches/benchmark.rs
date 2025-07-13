@@ -1,5 +1,5 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use screenshot_tool::{Config, ScreenshotRequest, Priority};
+use screenshot_tool::{Config, Priority, ScreenshotRequest};
 use std::time::Duration;
 
 #[cfg(feature = "integration_benchmarks")]
@@ -19,21 +19,21 @@ fn configure_fast_group(group: &mut criterion::BenchmarkGroup<criterion::measure
 fn benchmark_config_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("config");
     configure_fast_group(&mut group);
-    
+
     group.bench_function("creation", |b| {
         b.iter(|| {
             let config = Config::default();
             black_box(config);
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_screenshot_request_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("screenshot_request");
     configure_fast_group(&mut group);
-    
+
     group.bench_function("creation", |b| {
         b.iter(|| {
             let request = ScreenshotRequest {
@@ -45,20 +45,20 @@ fn benchmark_screenshot_request_creation(c: &mut Criterion) {
             black_box(request);
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_url_validation(c: &mut Criterion) {
     let mut group = c.benchmark_group("url_validation");
     configure_fast_group(&mut group);
-    
+
     let test_urls = vec![
         "https://example.com",
         "http://example.com/path",
         "invalid-url",
     ];
-    
+
     group.bench_function("validate", |b| {
         b.iter(|| {
             for url in &test_urls {
@@ -67,20 +67,20 @@ fn benchmark_url_validation(c: &mut Criterion) {
             }
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_filename_sanitization(c: &mut Criterion) {
     let mut group = c.benchmark_group("filename_sanitization");
     configure_fast_group(&mut group);
-    
+
     let test_filenames = vec![
         "normal_file.txt",
         "file with spaces.txt",
         "file/with/slashes.txt",
     ];
-    
+
     group.bench_function("sanitize", |b| {
         b.iter(|| {
             for filename in &test_filenames {
@@ -89,17 +89,17 @@ fn benchmark_filename_sanitization(c: &mut Criterion) {
             }
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_format_utilities(c: &mut Criterion) {
     let mut group = c.benchmark_group("format_utilities");
     configure_fast_group(&mut group);
-    
+
     let test_durations = vec![Duration::from_millis(100), Duration::from_secs(5)];
     let test_byte_sizes = vec![1024, 1048576];
-    
+
     group.bench_function("format_duration", |b| {
         b.iter(|| {
             for duration in &test_durations {
@@ -108,7 +108,7 @@ fn benchmark_format_utilities(c: &mut Criterion) {
             }
         });
     });
-    
+
     group.bench_function("format_bytes", |b| {
         b.iter(|| {
             for size in &test_byte_sizes {
@@ -117,7 +117,7 @@ fn benchmark_format_utilities(c: &mut Criterion) {
             }
         });
     });
-    
+
     group.finish();
 }
 
@@ -128,7 +128,7 @@ fn benchmark_service_creation(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("service_creation");
     configure_fast_group(&mut group);
-    
+
     group.bench_function("single_browser", |b| {
         b.iter(|| {
             rt.block_on(async {
@@ -139,14 +139,14 @@ fn benchmark_service_creation(c: &mut Criterion) {
                     screenshot_timeout: Duration::from_secs(5),
                     ..Default::default()
                 };
-                
+
                 let service = ScreenshotService::new(config).await.unwrap();
                 service.shutdown().await;
                 black_box(service);
             })
         });
     });
-    
+
     group.finish();
 }
 
@@ -155,7 +155,7 @@ fn benchmark_real_world_screenshot(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("real_world_screenshot");
     configure_fast_group(&mut group);
-    
+
     group.bench_function("single_url", |b| {
         b.iter(|| {
             rt.block_on(async {
@@ -166,23 +166,23 @@ fn benchmark_real_world_screenshot(c: &mut Criterion) {
                     screenshot_timeout: Duration::from_secs(5),
                     ..Default::default()
                 };
-                
+
                 let service = ScreenshotService::new(config).await.unwrap();
-                
+
                 let request = ScreenshotRequest {
                     url: "https://example.com".to_string(),
                     ..Default::default()
                 };
-                
+
                 let result = service.screenshot_single(request).await;
                 let success = result.is_ok();
-                
+
                 service.shutdown().await;
                 black_box(success);
             })
         });
     });
-    
+
     group.finish();
 }
 
@@ -191,7 +191,7 @@ fn benchmark_concurrent_screenshots(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("concurrent_screenshots");
     configure_fast_group(&mut group);
-    
+
     group.bench_function("concurrent_3", |b| {
         b.iter(|| {
             rt.block_on(async {
@@ -202,29 +202,34 @@ fn benchmark_concurrent_screenshots(c: &mut Criterion) {
                     screenshot_timeout: Duration::from_secs(5),
                     ..Default::default()
                 };
-                
+
                 let service = ScreenshotService::new(config).await.unwrap();
-                
-                let urls = vec!["https://example.com", "https://httpbin.org/html", "https://github.com"];
-                let requests: Vec<ScreenshotRequest> = urls.iter().map(|url| {
-                    ScreenshotRequest {
+
+                let urls = [
+                    "https://example.com",
+                    "https://httpbin.org/html",
+                    "https://github.com",
+                ];
+                let requests: Vec<ScreenshotRequest> = urls
+                    .iter()
+                    .map(|url| ScreenshotRequest {
                         url: url.to_string(),
                         ..Default::default()
-                    }
-                }).collect();
-                
+                    })
+                    .collect();
+
                 let results = service.process_requests(requests).await;
                 let successful = match results {
                     Ok(results) => results.iter().filter(|r| r.success).count(),
                     Err(_) => 0,
                 };
-                
+
                 service.shutdown().await;
                 black_box(successful);
             })
         });
     });
-    
+
     group.finish();
 }
 
@@ -233,7 +238,7 @@ fn benchmark_throughput_test(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("throughput_test");
     configure_fast_group(&mut group);
-    
+
     group.bench_function("batch_5_urls", |b| {
         b.iter(|| {
             rt.block_on(async {
@@ -244,38 +249,39 @@ fn benchmark_throughput_test(c: &mut Criterion) {
                     screenshot_timeout: Duration::from_secs(5),
                     ..Default::default()
                 };
-                
+
                 let service = ScreenshotService::new(config).await.unwrap();
                 let start_time = std::time::Instant::now();
-                
-                let test_urls = (0..5).map(|i| {
-                    format!("https://httpbin.org/uuid?id={}", i)
-                }).collect::<Vec<_>>();
-                
-                let requests: Vec<ScreenshotRequest> = test_urls.iter().map(|url| {
-                    ScreenshotRequest {
+
+                let test_urls = (0..5)
+                    .map(|i| format!("https://httpbin.org/uuid?id={i}"))
+                    .collect::<Vec<_>>();
+
+                let requests: Vec<ScreenshotRequest> = test_urls
+                    .iter()
+                    .map(|url| ScreenshotRequest {
                         url: url.clone(),
                         ..Default::default()
-                    }
-                }).collect();
-                
+                    })
+                    .collect();
+
                 let results = service.process_requests(requests).await;
                 let duration = start_time.elapsed();
-                let (successful, screenshots_per_second) = match results {
+                let (_successful, screenshots_per_second) = match results {
                     Ok(results) => {
                         let successful = results.iter().filter(|r| r.success).count();
                         let screenshots_per_second = successful as f64 / duration.as_secs_f64();
                         (successful, screenshots_per_second)
-                    },
+                    }
                     Err(_) => (0, 0.0),
                 };
-                
+
                 service.shutdown().await;
                 black_box(screenshots_per_second);
             })
         });
     });
-    
+
     group.finish();
 }
 
@@ -284,7 +290,7 @@ fn benchmark_error_handling(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("error_handling");
     configure_fast_group(&mut group);
-    
+
     group.bench_function("mixed_urls", |b| {
         b.iter(|| {
             rt.block_on(async {
@@ -295,37 +301,38 @@ fn benchmark_error_handling(c: &mut Criterion) {
                     screenshot_timeout: Duration::from_secs(5),
                     ..Default::default()
                 };
-                
+
                 let service = ScreenshotService::new(config).await.unwrap();
-                
-                let mixed_urls = vec![
+
+                let mixed_urls = [
                     "https://example.com",
                     "https://invalid-url-that-does-not-exist.com",
                     "invalid-url-format",
                 ];
-                
-                let requests: Vec<ScreenshotRequest> = mixed_urls.iter().map(|url| {
-                    ScreenshotRequest {
+
+                let requests: Vec<ScreenshotRequest> = mixed_urls
+                    .iter()
+                    .map(|url| ScreenshotRequest {
                         url: url.to_string(),
                         ..Default::default()
-                    }
-                }).collect();
-                
+                    })
+                    .collect();
+
                 let results = service.process_requests(requests).await;
                 let success_rate = match results {
                     Ok(results) => {
                         let successful = results.iter().filter(|r| r.success).count();
                         successful as f64 / results.len() as f64
-                    },
+                    }
                     Err(_) => 0.0,
                 };
-                
+
                 service.shutdown().await;
                 black_box(success_rate);
             })
         });
     });
-    
+
     group.finish();
 }
 

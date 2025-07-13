@@ -1,7 +1,7 @@
-use criterion::{black_box, criterion_group, criterion_main, Criterion, BenchmarkId};
+use criterion::{black_box, criterion_group, criterion_main, BenchmarkId, Criterion};
 use screenshot_tool::{
-    Config, ScreenshotRequest, Priority, BufferPool,
-    RateLimiter, CircuitBreaker, MemoryMonitor, ProgressTracker,
+    BufferPool, CircuitBreaker, Config, MemoryMonitor, Priority, ProgressTracker, RateLimiter,
+    ScreenshotRequest,
 };
 
 #[cfg(feature = "integration_benchmarks")]
@@ -12,21 +12,21 @@ use tokio::runtime::Runtime;
 fn benchmark_config_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("config");
     group.measurement_time(Duration::from_secs(1));
-    
+
     group.bench_function("config_creation", |b| {
         b.iter(|| {
             let config = Config::default();
             black_box(config);
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_screenshot_request_creation(c: &mut Criterion) {
     let mut group = c.benchmark_group("screenshot_request");
     group.measurement_time(Duration::from_secs(1));
-    
+
     group.bench_function("screenshot_request_creation", |b| {
         b.iter(|| {
             let request = ScreenshotRequest {
@@ -38,13 +38,13 @@ fn benchmark_screenshot_request_creation(c: &mut Criterion) {
             black_box(request);
         });
     });
-    
+
     group.finish();
 }
 
 fn benchmark_chrome_args_generation(c: &mut Criterion) {
     let config = Config::default();
-    
+
     c.bench_function("chrome_args_generation", |b| {
         b.iter(|| {
             let args = screenshot_tool::get_chrome_args(&config);
@@ -55,7 +55,7 @@ fn benchmark_chrome_args_generation(c: &mut Criterion) {
 
 fn benchmark_browser_config_creation(c: &mut Criterion) {
     let config = Config::default();
-    
+
     c.bench_function("browser_config_creation", |b| {
         b.iter(|| {
             let browser_config = screenshot_tool::create_browser_config(&config);
@@ -66,10 +66,10 @@ fn benchmark_browser_config_creation(c: &mut Criterion) {
 
 fn benchmark_circuit_breaker(c: &mut Criterion) {
     let mut group = c.benchmark_group("circuit_breaker");
-    
+
     // Set shorter measurement time to avoid timeouts
     group.measurement_time(Duration::from_secs(2));
-    
+
     for failure_threshold in [5, 10, 20].iter() {
         group.bench_with_input(
             BenchmarkId::new("operations", failure_threshold),
@@ -88,17 +88,17 @@ fn benchmark_circuit_breaker(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_buffer_pool(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("buffer_pool");
-    
+
     // Set shorter measurement time to avoid timeouts
     group.measurement_time(Duration::from_secs(2));
-    
+
     for buffer_size in [1024, 4096, 8192].iter() {
         group.bench_with_input(
             BenchmarkId::new("get_return_buffer", buffer_size),
@@ -114,17 +114,17 @@ fn benchmark_buffer_pool(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_rate_limiter(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
     let mut group = c.benchmark_group("rate_limiter");
-    
+
     // Set shorter measurement time to avoid timeouts
     group.measurement_time(Duration::from_secs(2));
-    
+
     for rate in [10, 50, 100].iter() {
         group.bench_with_input(
             BenchmarkId::new("acquire", rate),
@@ -140,16 +140,16 @@ fn benchmark_rate_limiter(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_memory_monitor(c: &mut Criterion) {
     let mut group = c.benchmark_group("memory_monitor");
-    
+
     // Set shorter measurement time to avoid timeouts
     group.measurement_time(Duration::from_secs(2));
-    
+
     for memory_limit in [1024 * 1024, 10 * 1024 * 1024, 100 * 1024 * 1024].iter() {
         group.bench_with_input(
             BenchmarkId::new("check_memory", memory_limit),
@@ -164,16 +164,16 @@ fn benchmark_memory_monitor(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
 fn benchmark_progress_tracker(c: &mut Criterion) {
     let mut group = c.benchmark_group("progress_tracker");
-    
+
     // Set shorter measurement time to avoid timeouts
     group.measurement_time(Duration::from_secs(2));
-    
+
     for total in [100, 1000, 10000].iter() {
         group.bench_with_input(
             BenchmarkId::new("record_completion", total),
@@ -191,7 +191,7 @@ fn benchmark_progress_tracker(c: &mut Criterion) {
             },
         );
     }
-    
+
     group.finish();
 }
 
@@ -204,7 +204,7 @@ fn benchmark_url_validation(c: &mut Criterion) {
         "invalid-url",
         "",
     ];
-    
+
     c.bench_function("url_validation", |b| {
         b.iter(|| {
             for url in &urls {
@@ -225,7 +225,7 @@ fn benchmark_filename_sanitization(c: &mut Criterion) {
         "file<with>brackets.txt",
         "file|with|pipes.txt",
     ];
-    
+
     c.bench_function("filename_sanitization", |b| {
         b.iter(|| {
             for filename in &filenames {
@@ -238,10 +238,10 @@ fn benchmark_filename_sanitization(c: &mut Criterion) {
 
 fn benchmark_format_utilities(c: &mut Criterion) {
     let mut group = c.benchmark_group("format_utilities");
-    
+
     // Set shorter measurement time to avoid timeouts
     group.measurement_time(Duration::from_secs(2));
-    
+
     // Duration formatting
     let durations = vec![
         Duration::from_millis(100),
@@ -249,7 +249,7 @@ fn benchmark_format_utilities(c: &mut Criterion) {
         Duration::from_secs(65),
         Duration::from_secs(3665),
     ];
-    
+
     group.bench_function("format_duration", |b| {
         b.iter(|| {
             for duration in &durations {
@@ -258,16 +258,10 @@ fn benchmark_format_utilities(c: &mut Criterion) {
             }
         });
     });
-    
+
     // Bytes formatting
-    let byte_sizes = vec![
-        512,
-        1024,
-        1536,
-        1048576,
-        1073741824,
-    ];
-    
+    let byte_sizes = vec![512, 1024, 1536, 1048576, 1073741824];
+
     group.bench_function("format_bytes", |b| {
         b.iter(|| {
             for size in &byte_sizes {
@@ -276,7 +270,7 @@ fn benchmark_format_utilities(c: &mut Criterion) {
             }
         });
     });
-    
+
     group.finish();
 }
 
@@ -289,7 +283,7 @@ fn benchmark_request_interceptor(c: &mut Criterion) {
         ("https://example.com/image.png", "image"),
         ("https://ads.example.com/ad.js", "script"),
     ];
-    
+
     c.bench_function("request_interceptor", |b| {
         b.iter(|| {
             for (url, resource_type) in &test_urls {
@@ -304,7 +298,7 @@ fn benchmark_request_interceptor(c: &mut Criterion) {
 #[cfg(feature = "integration_benchmarks")]
 fn benchmark_service_creation(c: &mut Criterion) {
     let rt = Runtime::new().unwrap();
-    
+
     c.bench_function("service_creation", |b| {
         b.iter(|| {
             rt.block_on(async {
@@ -314,7 +308,7 @@ fn benchmark_service_creation(c: &mut Criterion) {
                     chrome_path: Some("/usr/sbin/chromium".to_string()),
                     ..Default::default()
                 };
-                
+
                 let service = ScreenshotService::new(config).await.unwrap();
                 service.shutdown().await;
                 black_box(service);
@@ -341,10 +335,7 @@ criterion_group!(
 );
 
 #[cfg(feature = "integration_benchmarks")]
-criterion_group!(
-    integration_benches,
-    benchmark_service_creation,
-);
+criterion_group!(integration_benches, benchmark_service_creation,);
 
 #[cfg(feature = "integration_benchmarks")]
 criterion_main!(benches, integration_benches);
