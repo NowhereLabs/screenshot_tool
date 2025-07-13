@@ -1,10 +1,10 @@
 //! Browser pool management for concurrent Chrome instances
-//! 
+//!
 //! This module provides a managed pool of Chrome browser instances that can be
 //! shared across multiple screenshot operations for optimal performance and
 //! resource utilization.
 
-use crate::{Config, ScreenshotError, create_browser_config_with_instance_id};
+use crate::{create_browser_config_with_instance_id, Config, ScreenshotError};
 use chromiumoxide::browser::Browser;
 use futures::StreamExt;
 use std::collections::VecDeque;
@@ -15,7 +15,7 @@ use tokio::time::sleep;
 use tracing::{error, info, warn};
 
 /// Current status of a browser instance in the pool
-/// 
+///
 /// Tracks the health and availability of individual Chrome instances
 /// for load balancing and error recovery.
 #[derive(Debug, Clone, Copy)]
@@ -33,7 +33,7 @@ pub enum InstanceStatus {
 }
 
 /// Represents a single Chrome browser instance in the pool
-/// 
+///
 /// Contains the browser handle, status information, and usage statistics
 /// for managing the lifecycle and health of browser instances.
 #[derive(Debug)]
@@ -57,7 +57,11 @@ pub struct BrowserInstance {
 }
 
 impl BrowserInstance {
-    pub fn new(id: usize, browser: Browser, handler: tokio::task::JoinHandle<Result<(), chromiumoxide::error::CdpError>>) -> Self {
+    pub fn new(
+        id: usize,
+        browser: Browser,
+        handler: tokio::task::JoinHandle<Result<(), chromiumoxide::error::CdpError>>,
+    ) -> Self {
         Self {
             id,
             browser: Arc::new(Mutex::new(browser)),
@@ -69,34 +73,34 @@ impl BrowserInstance {
             failure_count: 0,
         }
     }
-    
+
     pub fn mark_used(&mut self) {
         self.last_used = Instant::now();
         self.screenshot_count += 1;
         self.status = InstanceStatus::Busy;
     }
-    
+
     pub fn mark_available(&mut self) {
         self.status = InstanceStatus::Healthy;
     }
-    
+
     pub fn mark_failed(&mut self) {
         self.failure_count += 1;
         self.status = InstanceStatus::Failed;
     }
-    
+
     pub fn is_healthy(&self) -> bool {
         matches!(self.status, InstanceStatus::Healthy)
     }
-    
+
     pub fn age(&self) -> Duration {
         self.created_at.elapsed()
     }
-    
+
     pub fn idle_time(&self) -> Duration {
         self.last_used.elapsed()
     }
-    
+
     pub async fn shutdown(self) {
         let _ = self.browser.lock().await.close().await;
         self.handler.abort();
@@ -123,7 +127,7 @@ impl Drop for BrowserHandle {
     fn drop(&mut self) {
         let pool = self.pool.clone();
         let instance_id = self.instance_id;
-        
+
         tokio::spawn(async move {
             pool.return_browser(instance_id).await;
         });
@@ -147,26 +151,26 @@ impl BrowserPool {
             config: config.clone(),
             is_shutting_down: Arc::new(std::sync::atomic::AtomicBool::new(false)),
         };
-        
+
         // Initialize browser instances
         pool.initialize_instances().await?;
-        
+
         // Start health check task
         pool.start_health_check_task().await;
-        
+
         Ok(pool)
     }
-    
+
     async fn initialize_instances(&self) -> Result<(), ScreenshotError> {
         let mut instances = self.instances.lock().await;
         let mut available = self.available.lock().await;
-        
+
         for i in 0..self.config.browser_pool_size {
             // Add a small delay between browser launches to avoid race conditions
             if i > 0 {
                 sleep(Duration::from_millis(500)).await;
             }
-            
+
             match self.create_browser_instance(i).await {
                 Ok(instance) => {
                     instances.push(instance);
@@ -179,25 +183,34 @@ impl BrowserPool {
                 }
             }
         }
-        
-        info!("Browser pool initialized with {} instances", instances.len());
+
+        info!(
+            "Browser pool initialized with {} instances",
+            instances.len()
+        );
         Ok(())
     }
-    
+
     async fn create_browser_instance(&self, id: usize) -> Result<BrowserInstance, ScreenshotError> {
         // Create unique temp directories for this instance
         let temp_dir = format!("/tmp/chromium-temp-{}-{}", std::process::id(), id);
         let user_data_dir = format!("/tmp/chromium-screenshot-{}-{}", std::process::id(), id);
-        let runner_dir = format!("/tmp/chromiumoxide-runner-{}", id);
-        
+        let runner_dir = format!("/tmp/chromiumoxide-runner-{id}");
+
         // Create the directories if they don't exist
-        std::fs::create_dir_all(&temp_dir).map_err(|e| ScreenshotError::BrowserLaunchFailed(format!("Failed to create temp dir: {}", e)))?;
-        std::fs::create_dir_all(&user_data_dir).map_err(|e| ScreenshotError::BrowserLaunchFailed(format!("Failed to create user data dir: {}", e)))?;
-        std::fs::create_dir_all(&runner_dir).map_err(|e| ScreenshotError::BrowserLaunchFailed(format!("Failed to create runner dir: {}", e)))?;
-        
+        std::fs::create_dir_all(&temp_dir).map_err(|e| {
+            ScreenshotError::BrowserLaunchFailed(format!("Failed to create temp dir: {e}"))
+        })?;
+        std::fs::create_dir_all(&user_data_dir).map_err(|e| {
+            ScreenshotError::BrowserLaunchFailed(format!("Failed to create user data dir: {e}"))
+        })?;
+        std::fs::create_dir_all(&runner_dir).map_err(|e| {
+            ScreenshotError::BrowserLaunchFailed(format!("Failed to create runner dir: {e}"))
+        })?;
+
         // Create a unique browser config for this instance
         let instance_config = create_browser_config_with_instance_id(&self.config, Some(id));
-        
+
         // Try to launch browser with unique environment
         let (browser, mut handler) = {
             // Set environment variable for unique chromiumoxide runner directory
@@ -208,7 +221,7 @@ impl BrowserPool {
             result
         }
         .map_err(|e| ScreenshotError::BrowserLaunchFailed(e.to_string()))?;
-        
+
         // Start the handler in a separate task to handle Chrome DevTools Protocol communication
         // The handler implements Stream and must be polled with .next().await in a loop
         let handler_task = tokio::spawn(async move {
@@ -231,38 +244,50 @@ impl BrowserPool {
             }
             Ok(())
         });
-        
+
         Ok(BrowserInstance::new(id, browser, handler_task))
     }
-    
+
     pub async fn get_browser(&self) -> Result<BrowserHandle, ScreenshotError> {
-        if self.is_shutting_down.load(std::sync::atomic::Ordering::Relaxed) {
+        if self
+            .is_shutting_down
+            .load(std::sync::atomic::Ordering::Relaxed)
+        {
             return Err(ScreenshotError::BrowserUnavailable);
         }
-        
+
         // Acquire semaphore permit
-        let _permit = self.semaphore.acquire().await
+        let _permit = self
+            .semaphore
+            .acquire()
+            .await
             .map_err(|_| ScreenshotError::BrowserUnavailable)?;
-        
+
         // Retry logic for finding a healthy instance
         for attempt in 0..3 {
             let instance_id = {
                 let mut available = self.available.lock().await;
-                available.pop_front()
+                available
+                    .pop_front()
                     .ok_or(ScreenshotError::BrowserUnavailable)?
             };
-            
+
             let browser_result = {
                 let mut instances = self.instances.lock().await;
-                let instance = instances.get_mut(instance_id)
+                let instance = instances
+                    .get_mut(instance_id)
                     .ok_or(ScreenshotError::BrowserUnavailable)?;
-                
+
                 // Check instance health and handler status
                 let is_healthy = instance.is_healthy() && !instance.handler.is_finished();
-                
+
                 if !is_healthy {
-                    warn!("Browser instance {} unhealthy (attempt {}), attempting restart", instance_id, attempt + 1);
-                    
+                    warn!(
+                        "Browser instance {} unhealthy (attempt {}), attempting restart",
+                        instance_id,
+                        attempt + 1
+                    );
+
                     // Try to restart the instance
                     match self.restart_instance_internal(instance_id).await {
                         Ok(()) => {
@@ -282,10 +307,14 @@ impl BrowserPool {
                     Ok(instance.browser.clone())
                 }
             };
-            
+
             match browser_result {
                 Ok(browser) => {
-                    return Ok(BrowserHandle::new(browser, instance_id, Arc::new(self.clone())));
+                    return Ok(BrowserHandle::new(
+                        browser,
+                        instance_id,
+                        Arc::new(self.clone()),
+                    ));
                 }
                 Err(_) if attempt < 2 => {
                     // Try next instance
@@ -296,24 +325,24 @@ impl BrowserPool {
                 }
             }
         }
-        
+
         Err(ScreenshotError::BrowserUnavailable)
     }
-    
+
     pub async fn return_browser(&self, instance_id: usize) {
         let mut instances = self.instances.lock().await;
         let mut available = self.available.lock().await;
-        
+
         if let Some(instance) = instances.get_mut(instance_id) {
             instance.mark_available();
             available.push_back(instance_id);
         }
     }
-    
+
     pub async fn health_check(&self) -> Vec<InstanceHealth> {
         let instances = self.instances.lock().await;
         let mut healths = Vec::new();
-        
+
         for instance in instances.iter() {
             let health = InstanceHealth {
                 id: instance.id,
@@ -325,24 +354,24 @@ impl BrowserPool {
             };
             healths.push(health);
         }
-        
+
         healths
     }
-    
+
     pub async fn restart_instance(&self, instance_id: usize) -> Result<(), ScreenshotError> {
         self.restart_instance_internal(instance_id).await
     }
-    
+
     async fn restart_instance_internal(&self, instance_id: usize) -> Result<(), ScreenshotError> {
         let mut instances = self.instances.lock().await;
-        
+
         if let Some(instance) = instances.get_mut(instance_id) {
             instance.status = InstanceStatus::Restarting;
-            
+
             // Shutdown old browser
             let _ = instance.browser.lock().await.close().await;
             instance.handler.abort();
-            
+
             // Create new browser instance
             match self.create_browser_instance(instance_id).await {
                 Ok(new_instance) => {
@@ -360,16 +389,16 @@ impl BrowserPool {
             Err(ScreenshotError::BrowserUnavailable)
         }
     }
-    
+
     async fn start_health_check_task(&self) {
         let pool = Arc::new(self.clone());
         let is_shutting_down = self.is_shutting_down.clone();
-        
+
         tokio::spawn(async move {
             // Staggered intervals: quick check every 15s, deep check every 60s
             let mut quick_interval = tokio::time::interval(Duration::from_secs(15));
             let mut deep_interval = tokio::time::interval(Duration::from_secs(60));
-            
+
             while !is_shutting_down.load(std::sync::atomic::Ordering::Relaxed) {
                 tokio::select! {
                     _ = quick_interval.tick() => {
@@ -382,32 +411,39 @@ impl BrowserPool {
             }
         });
     }
-    
+
     async fn quick_health_check(&self) {
         let instances = self.instances.lock().await;
         for instance in instances.iter() {
             // Check for crashed handlers (quick check)
             if instance.handler.is_finished() {
-                warn!("Browser instance {} handler crashed, marking for restart", instance.id);
+                warn!(
+                    "Browser instance {} handler crashed, marking for restart",
+                    instance.id
+                );
                 // Note: We can't modify here due to lock, the restart will happen on next acquire
             }
-            
+
             // Check for unresponsive instances
-            if instance.idle_time() > Duration::from_secs(300) && 
-               matches!(instance.status, InstanceStatus::Busy) {
-                warn!("Browser instance {} unresponsive for {}s", 
-                      instance.id, instance.idle_time().as_secs());
+            if instance.idle_time() > Duration::from_secs(300)
+                && matches!(instance.status, InstanceStatus::Busy)
+            {
+                warn!(
+                    "Browser instance {} unresponsive for {}s",
+                    instance.id,
+                    instance.idle_time().as_secs()
+                );
             }
         }
     }
-    
+
     async fn deep_health_check(&self) {
         let instances_to_restart = {
             let instances = self.instances.lock().await;
             let mut restart_list = Vec::new();
-            
+
             for instance in instances.iter() {
-                let needs_restart = 
+                let needs_restart =
                     // Too old (1 hour)
                     instance.age() > Duration::from_secs(3600) ||
                     // Too many failures
@@ -415,9 +451,9 @@ impl BrowserPool {
                     // Handler crashed
                     instance.handler.is_finished() ||
                     // Stuck in unresponsive state
-                    (instance.idle_time() > Duration::from_secs(600) && 
+                    (instance.idle_time() > Duration::from_secs(600) &&
                      matches!(instance.status, InstanceStatus::Busy));
-                
+
                 if needs_restart {
                     info!("Scheduling restart for browser instance {}: age={:?}, failures={}, handler_alive={}", 
                           instance.id, instance.age(), instance.failure_count, !instance.handler.is_finished());
@@ -426,19 +462,23 @@ impl BrowserPool {
             }
             restart_list
         };
-        
+
         // Restart problematic instances (without holding the lock)
         for instance_id in instances_to_restart {
             if let Err(e) = self.restart_instance(instance_id).await {
-                error!("Failed to restart browser instance {} during health check: {}", instance_id, e);
+                error!(
+                    "Failed to restart browser instance {} during health check: {}",
+                    instance_id, e
+                );
             }
         }
     }
-    
+
     pub async fn shutdown(&self) {
         info!("Shutting down browser pool...");
-        self.is_shutting_down.store(true, std::sync::atomic::Ordering::Relaxed);
-        
+        self.is_shutting_down
+            .store(true, std::sync::atomic::Ordering::Relaxed);
+
         // Wait for all instances to become available
         let mut retries = 0;
         while retries < 10 {
@@ -446,29 +486,29 @@ impl BrowserPool {
             if available_count == self.config.browser_pool_size {
                 break;
             }
-            
+
             sleep(Duration::from_millis(100)).await;
             retries += 1;
         }
-        
+
         // Shutdown all browser instances
         let mut instances = self.instances.lock().await;
         for instance in instances.drain(..) {
             instance.shutdown().await;
         }
-        
+
         info!("Browser pool shutdown complete");
     }
-    
+
     pub async fn get_stats(&self) -> BrowserPoolStats {
         let instances = self.instances.lock().await;
         let available = self.available.lock().await;
-        
+
         let mut healthy_count = 0;
         let mut busy_count = 0;
         let mut failed_count = 0;
         let mut total_screenshots = 0;
-        
+
         for instance in instances.iter() {
             total_screenshots += instance.screenshot_count;
             match instance.status {
@@ -478,7 +518,7 @@ impl BrowserPool {
                 _ => {}
             }
         }
-        
+
         BrowserPoolStats {
             total_instances: instances.len(),
             healthy_instances: healthy_count,

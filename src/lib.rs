@@ -1,12 +1,12 @@
 //! # Screenshot Tool
 //!
-//! A high-performance web screenshot tool written in Rust, designed for bulk URL processing 
-//! with support for 100-200 concurrent screenshots. Achieves 60+ screenshots per second 
+//! A high-performance web screenshot tool written in Rust, designed for bulk URL processing
+//! with support for 100-200 concurrent screenshots. Achieves 60+ screenshots per second
 //! throughput using Chrome headless browser pooling.
 //!
 //! ## Performance Benchmarks
 //!
-//! Comprehensive benchmarking suite with fast execution times. All benchmarks use optimized 
+//! Comprehensive benchmarking suite with fast execution times. All benchmarks use optimized
 //! settings (500ms warmup, 500ms measurement, 20 samples) for rapid development feedback.
 //!
 //! ### Benchmark Execution
@@ -151,12 +151,12 @@ pub mod utils;
 #[cfg(test)]
 mod tests;
 
+pub use browser_pool::*;
+pub use cli::*;
 pub use config::*;
 pub use error::*;
-pub use browser_pool::*;
-pub use screenshot_service::*;
-pub use worker::*;
-pub use cli::*;
-pub use metrics::*;
 pub use health::*;
+pub use metrics::*;
+pub use screenshot_service::*;
 pub use utils::*;
+pub use worker::*;
